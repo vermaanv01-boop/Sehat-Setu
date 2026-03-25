@@ -20,7 +20,7 @@ export default function PHCDashboard() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("dashboard"); // dashboard | new | list
 
-  const bg = dark ? "#041727ff" : "#f1f0e6ff";
+  const bg = dark ? "rgb(4, 23, 42)" : "#f1f0e6ff";
   const card = dark ? "#12152a" : "#ffffff";
   const border = dark ? "#1e2235" : "#e5e7eb";
   const text = dark ? "#e2e8f0" : "#2c3543ff";

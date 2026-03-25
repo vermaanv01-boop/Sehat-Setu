@@ -8,7 +8,7 @@ export default function Navbar({ role }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const bg = dark ? "#0f1117" : "#ffffff";
+  const bg = dark ? "#12141b" : "#ffffff";
   const border = dark ? "#1e2030" : "#f0f4f8";
   const text = dark ? "#e2e8f0" : "#1e293b";
   const brand = "#0f766e";
