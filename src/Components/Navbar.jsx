@@ -85,12 +85,14 @@ export default function Navbar({ role }) {
         {role === "phc" && (
           <>
             <NavLink to="/phc/dashboard" label="Dashboard" icon="" />
+            <NavLink to="/locations" label="Facility Map" icon="📍 " />
             <NavLink to="/history/phc" label="History" icon="" />
           </>
         )}
         {role === "urban" && (
           <>
             <NavLink to="/urban/dashboard" label="Dashboard" icon="" />
+            <NavLink to="/locations" label="Facility Map" icon="📍 " />
             <NavLink to="/history/urban" label="History" icon="" />
           </>
         )}

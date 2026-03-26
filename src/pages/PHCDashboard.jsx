@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { useData } from "../context/DataContext";
+import api from "../utils/api";
 import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 import { detectDisease } from "../utils/diseaseDetector";
 import Navbar from "../Components/Navbar";
 import StatsCards from "../Components/StatsCards";
@@ -10,16 +11,19 @@ import ReferralCard from "../Components/ReferralCard";
 import UrgencyAlert from "../Components/UrgencyAlert";
 
 export default function PHCDashboard() {
-  const { requests, addRequest } = useData();
   const { dark } = useTheme();
-  const phcRequests = requests.filter(r => r.role === "phc" || !r.role);
+  const { user } = useAuth();
+  const [phcRequests, setPhcRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [form, setForm] = useState({ patient: "", age: "", gender: "", symptoms: "", files: [] });
+  // Form State
+  const [form, setForm] = useState({ patient: "", age: "", gender: "", symptoms: "", contactNumber: "", address: "", files: [] });
   const [previewRequest, setPreviewRequest] = useState(null);
   const [alertRequest, setAlertRequest] = useState(null);
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState("dashboard"); // dashboard | new | list
+  const [activeTab, setActiveTab] = useState("dashboard");
 
+  // Colors
   const bg = dark ? "rgb(4, 23, 42)" : "#f1f0e6ff";
   const card = dark ? "#12152a" : "#ffffff";
   const border = dark ? "#1e2235" : "#e5e7eb";
@@ -28,12 +32,40 @@ export default function PHCDashboard() {
   const inputBg = dark ? "#1a1d2e" : "#f8fafc";
   const inputBorder = dark ? "#2e3150" : "#d1d5db";
 
+  // Fetch Cases from API
+  const fetchCases = async () => {
+    try {
+      const { data } = await api.get('/cases');
+      // Map API cases to frontend format to minimize component breakage
+      const mapped = data.data.map(c => ({
+        id: c._id,
+        patient: `${c.patient?.firstName} ${c.patient?.lastName}`,
+        age: c.patient?.dob ? new Date().getFullYear() - new Date(c.patient.dob).getFullYear() : 'N/A',
+        gender: c.patient?.gender || 'N/A',
+        symptoms: c.symptoms,
+        urgency: "Pending Evaluation", // Typically updated by bot/specialist
+        status: c.status,
+        timestamp: c.createdAt,
+        suspected: "Analyzing...",
+        files: c.files || []
+      }));
+      setPhcRequests(mapped);
+    } catch (error) {
+      console.error("Failed to fetch cases:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCases();
+  }, []);
+
   const handlePreview = () => {
     if (!form.patient || !form.symptoms) return alert("Patient name and symptoms are required!");
     const { disease, risk, advice } = detectDisease(form.symptoms);
-    const newRequest = {
-      id: Date.now(),
-      role: "phc",
+    
+    setPreviewRequest({
       patient: form.patient,
       age: form.age,
       gender: form.gender,
@@ -41,23 +73,56 @@ export default function PHCDashboard() {
       suspected: disease,
       urgency: risk,
       advice,
-      status: "Pending",
-      files: form.files.map(f => ({ name: f.name, url: URL.createObjectURL(f), raw: f })),
-      timestamp: new Date().toISOString(),
-    };
-    setPreviewRequest(newRequest);
+      files: form.files
+    });
   };
 
-  const handleConfirmSubmit = () => {
+  const handleConfirmSubmit = async () => {
     if (!previewRequest) return;
-    addRequest(previewRequest);
-    setForm({ patient: "", age: "", gender: "", symptoms: "", files: [] });
+    
+    try {
+      // Split name blindly for MVP
+      const names = previewRequest.patient.split(' ');
+      const firstName = names[0];
+      const lastName = names.slice(1).join(' ') || 'Unknown';
+      const fakeDob = new Date();
+      if(previewRequest.age) fakeDob.setFullYear(fakeDob.getFullYear() - parseInt(previewRequest.age));
 
-    if (previewRequest.urgency === "Critical" || previewRequest.urgency === "High") {
-      setAlertRequest(previewRequest);
+      // 1. Create Patient & Case
+      const { data: resData } = await api.post('/cases/patient', {
+        firstName,
+        lastName,
+        dob: fakeDob.toISOString(),
+        gender: previewRequest.gender === 'M' ? 'Male' : previewRequest.gender === 'F' ? 'Female' : 'Other',
+        contactNumber: form.contactNumber || '0000000000',
+        address: form.address || 'Local Village',
+        symptoms: previewRequest.symptoms
+      });
+
+      const newCaseId = resData.case._id;
+
+      // 2. Upload Files
+      if(previewRequest.files && previewRequest.files.length > 0) {
+        for(let file of previewRequest.files) {
+          const formData = new FormData();
+          formData.append('file', file);
+          await api.post(`/cases/${newCaseId}/upload`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        }
+      }
+
+      setForm({ patient: "", age: "", gender: "", symptoms: "", contactNumber: "", address: "", files: [] });
+      setPreviewRequest(null);
+      setActiveTab("list");
+      
+      // Refresh list
+      fetchCases();
+
+    } catch (err) {
+      alert("Error submitting case. Check console.");
+      console.error(err);
     }
-    setPreviewRequest(null);
-    setActiveTab("list");
   };
 
   const cancelPreview = () => setPreviewRequest(null);
@@ -65,8 +130,7 @@ export default function PHCDashboard() {
   const filteredRequests = phcRequests.filter(r =>
     !search ||
     r.patient?.toLowerCase().includes(search.toLowerCase()) ||
-    r.symptoms?.toLowerCase().includes(search.toLowerCase()) ||
-    r.suspected?.toLowerCase().includes(search.toLowerCase())
+    r.symptoms?.toLowerCase().includes(search.toLowerCase())
   );
 
   const Tab = ({ id, label, icon }) => (
@@ -75,24 +139,20 @@ export default function PHCDashboard() {
       style={{
         background: activeTab === id ? (dark ? "#1e3a6e" : "#dbeafe") : "transparent",
         color: activeTab === id ? (dark ? "#60a5fa" : "#1d4ed8") : muted,
-        border: "none",
-        borderRadius: "8px",
-        padding: "8px 16px",
-        fontWeight: activeTab === id ? 700 : 500,
-        fontSize: "13px",
-        cursor: "pointer",
-        transition: "all 0.2s",
-        display: "flex",
-        alignItems: "center",
-        gap: "5px",
+        border: "none", borderRadius: "8px", padding: "8px 16px",
+        fontWeight: activeTab === id ? 700 : 500, fontSize: "13px",
+        cursor: "pointer", transition: "all 0.2s",
+        display: "flex", alignItems: "center", gap: "5px",
       }}
     >
       {icon} {label}
     </button>
   );
 
+  if(loading) return <div style={{padding: '50px', textAlign: 'center', color: text}}>Loading Dashboard...</div>;
+
   return (
-    <div style={{ minHeight: "100vh", background: bg, fontFamily: "'Segoe UI', system-ui, sans-serif", color: text, margin: 0 }}>
+    <div style={{ minHeight: "100vh", background: bg, fontFamily: "'Inter', system-ui, sans-serif", color: text, margin: 0 }}>
       <Navbar role="phc" />
 
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "24px 20px" }}>
@@ -102,7 +162,7 @@ export default function PHCDashboard() {
             🏥 Primary Health Centres (PHCs)
           </h1>
           <p style={{ margin: "4px 0 0", color: muted, fontSize: "18px" }}>
-            Primary Health Centre — Patient Referral System
+            Welcome back, {user?.name || "Healthcare Worker"}.
           </p>
         </div>
 
@@ -132,26 +192,17 @@ export default function PHCDashboard() {
 
         {/* NEW PATIENT TAB */}
         {activeTab === "new" && (
-          <div style={{
-            background: card,
-            border: `1px solid ${border}`,
-            borderRadius: "16px",
-            padding: "24px",
-            boxShadow: dark ? "0 4px 20px rgba(0,0,0,0.4)" : "0 4px 20px rgba(0,0,0,0.06)",
-          }}>
+          <div className="premium-card" style={{ padding: "24px" }}>
             <h2 style={{ margin: "0 0 20px", fontSize: "17px", color: text }}>📝 New Patient Referral</h2>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginBottom: "12px" }}>
               {[
-                { key: "patient", placeholder: "Patient Name / नाम *", type: "text" },
-                { key: "age", placeholder: "Age / उम्र", type: "number" },
-                { key: "gender", placeholder: "Gender / लिंग (M/F/Other)", type: "text" },
+                { key: "patient", placeholder: "Full Name *", type: "text" },
+                { key: "age", placeholder: "Age", type: "number" },
+                { key: "gender", placeholder: "Gender (M/F/Other)", type: "text" },
               ].map(({ key, placeholder, type }) => (
                 <input
-                  key={key}
-                  type={type}
-                  placeholder={placeholder}
-                  value={form[key]}
+                  key={key} type={type} placeholder={placeholder} value={form[key]}
                   onChange={e => setForm({ ...form, [key]: e.target.value })}
                   style={{ padding: "10px 14px", borderRadius: "8px", border: `1px solid ${inputBorder}`, background: inputBg, color: text, fontSize: "14px", outline: "none" }}
                 />
@@ -159,7 +210,7 @@ export default function PHCDashboard() {
             </div>
 
             <textarea
-              placeholder="Describe Symptoms / लक्षण बताएं (English / Hindi / Hinglish) *"
+              placeholder="Describe Symptoms in detail *"
               value={form.symptoms}
               onChange={e => setForm({ ...form, symptoms: e.target.value })}
               rows={4}
@@ -167,86 +218,20 @@ export default function PHCDashboard() {
             />
 
             <div style={{ marginBottom: "16px" }}>
-              <label style={{ fontSize: "13px", color: muted, display: "block", marginBottom: "6px" }}>📎 Upload Files (X-rays, Reports, etc.)</label>
-              <input
-                type="file"
-                multiple
-                onChange={e => setForm({ ...form, files: Array.from(e.target.files) })}
-                style={{ fontSize: "13px", color: text }}
-              />
-              {form.files.length > 0 && (
-                <p style={{ margin: "6px 0 0", fontSize: "12px", color: muted }}>
-                  {form.files.length} file(s) selected: {form.files.map(f => f.name).join(", ")}
-                </p>
-              )}
+              <label style={{ fontSize: "13px", color: muted, display: "block", marginBottom: "6px" }}>📎 Upload Files (Limit 10MB)</label>
+              <input type="file" multiple onChange={e => setForm({ ...form, files: Array.from(e.target.files) })} style={{ fontSize: "13px", color: text }} />
             </div>
 
             {!previewRequest ? (
-              <button
-                onClick={handlePreview}
-                style={{
-                  background: "linear-gradient(135deg, #0f766e, #0891b2)",
-                  color: "#fff", border: "none", borderRadius: "10px",
-                  padding: "12px 28px", fontSize: "14px", fontWeight: 600,
-                  cursor: "pointer", transition: "all 0.2s",
-                  boxShadow: "0 4px 12px rgba(15, 118, 110, 0.3)"
-                }}
-                onMouseEnter={e => { e.currentTarget.style.opacity = "0.9"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-                onMouseLeave={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "translateY(0)"; }}
-              >
-                Preview Referral 👁️
-              </button>
+              <button onClick={handlePreview} className="btn btn-primary" style={{ width: '100%' }}> Preview Referral 👁️ </button>
             ) : (
-              <div style={{
-                background: dark ? "#1e293b" : "#f8fafc",
-                border: `1px solid ${border}`, borderRadius: "12px",
-                padding: "20px", marginTop: "20px",
-                boxShadow: "inset 0 2px 4px rgba(0,0,0,0.02)"
-              }}>
+              <div style={{ background: dark ? "#1e293b" : "#f8fafc", border: `1px solid ${border}`, borderRadius: "12px", padding: "20px", marginTop: "20px" }}>
                 <h3 style={{ margin: "0 0 16px", fontSize: "16px", color: text, display: "flex", alignItems: "center", gap: "8px" }}>
                   <span style={{ color: "#3b82f6" }}>ℹ️</span> Review Referral Details
                 </h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", fontSize: "14px", marginBottom: "20px", color: text }}>
-                  <div><strong style={{ color: muted }}>Patient:</strong> {previewRequest.patient}</div>
-                  <div><strong style={{ color: muted }}>Age/Gender:</strong> {previewRequest.age || "N/A"} / {previewRequest.gender || "N/A"}</div>
-                  <div style={{ gridColumn: "span 2" }}><strong style={{ color: muted }}>Symptoms:</strong> {previewRequest.symptoms}</div>
-                  <div style={{ gridColumn: "span 2", padding: "12px", background: dark ? "#111827" : "#fff", borderRadius: "8px", border: `1px solid ${border}` }}>
-                    <div style={{ marginBottom: "6px" }}><strong style={{ color: muted }}>Detected Condition:</strong> <span style={{ fontWeight: 600 }}>{previewRequest.suspected}</span></div>
-                    <div style={{ marginBottom: "6px" }}><strong style={{ color: muted }}>Urgency Level:</strong> <span style={{
-                      fontWeight: 700,
-                      color: previewRequest.urgency === "Critical" ? "#ef4444" :
-                        previewRequest.urgency === "High" ? "#f97316" :
-                          previewRequest.urgency === "Medium" ? "#eab308" : "#22c55e"
-                    }}>{previewRequest.urgency}</span></div>
-                    <div><strong style={{ color: muted }}>Advice:</strong> {previewRequest.advice}</div>
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                  <button
-                    onClick={handleConfirmSubmit}
-                    style={{
-                      background: "linear-gradient(135deg, #2563eb, #3b82f6)", color: "#fff",
-                      border: "none", borderRadius: "10px", padding: "12px 28px",
-                      fontSize: "14px", fontWeight: 600, cursor: "pointer", transition: "all 0.2s",
-                      boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)"
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.opacity = "0.9"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-                    onMouseLeave={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "translateY(0)"; }}
-                  >
-                    Confirm & Send to Urban →
-                  </button>
-                  <button
-                    onClick={cancelPreview}
-                    style={{
-                      background: "transparent", color: muted,
-                      border: `1px solid ${border}`, borderRadius: "10px", padding: "12px 28px",
-                      fontSize: "14px", fontWeight: 600, cursor: "pointer", transition: "all 0.2s"
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = dark ? "#334155" : "#e2e8f0"; e.currentTarget.style.color = text; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = muted; }}
-                  >
-                    Edit Details
-                  </button>
+                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "1rem" }}>
+                  <button onClick={handleConfirmSubmit} className="btn btn-primary">Confirm & Send to Urban →</button>
+                  <button onClick={cancelPreview} className="btn" style={{ background: inputBg, color: text, border: `1px solid ${inputBorder}` }}>Edit Details</button>
                 </div>
               </div>
             )}
@@ -256,50 +241,24 @@ export default function PHCDashboard() {
         {/* LIST TAB */}
         {activeTab === "list" && (
           <div>
-            {/* Search */}
             <div style={{ position: "relative", marginBottom: "16px" }}>
               <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: muted }}>🔍</span>
-              <input
-                placeholder="Search by patient name, symptoms, or disease..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                style={{
-                  width: "100%", padding: "11px 14px 11px 36px",
-                  borderRadius: "10px", border: `1px solid ${inputBorder}`,
-                  background: inputBg, color: text, fontSize: "14px",
-                  outline: "none", boxSizing: "border-box",
-                }}
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch("")}
-                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: "16px", color: muted }}
-                >✕</button>
-              )}
+              <input placeholder="Search cases..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: "100%", padding: "11px 14px 11px 36px", borderRadius: "10px", border: `1px solid ${inputBorder}`, background: inputBg, color: text, fontSize: "14px", outline: "none", boxSizing: "border-box" }} />
             </div>
-
-            <p style={{ margin: "0 0 12px", fontSize: "13px", color: muted }}>
-              Showing {filteredRequests.length} of {phcRequests.length} cases
-            </p>
 
             {filteredRequests.length === 0 ? (
               <div style={{ textAlign: "center", padding: "60px", color: muted }}>
                 <div style={{ fontSize: "48px", marginBottom: "12px" }}>📭</div>
-                <p>{search ? "No cases match your search." : "No cases submitted yet."}</p>
+                <p>No cases found.</p>
               </div>
             ) : (
-              [...filteredRequests]
-                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-                .map(r => <ReferralCard key={r.id} {...r} />)
+              [...filteredRequests].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map(r => <ReferralCard key={r.id} {...r} />)
             )}
           </div>
         )}
       </div>
-
-      {/* Urgency Alert */}
-      {alertRequest && (
-        <UrgencyAlert request={alertRequest} onClose={() => setAlertRequest(null)} />
-      )}
+      
+      {alertRequest && <UrgencyAlert request={alertRequest} onClose={() => setAlertRequest(null)} />}
     </div>
   );
 }
