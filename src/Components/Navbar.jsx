@@ -1,10 +1,12 @@
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 import logo from "../assets/SEHAT SETU LOGO.jpeg";
 
 export default function Navbar({ role }) {
   const { dark, toggle } = useTheme();
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -12,6 +14,11 @@ export default function Navbar({ role }) {
   const border = dark ? "#1e2030" : "#f0f4f8";
   const text = dark ? "#e2e8f0" : "#1e293b";
   const brand = "#0f766e";
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   const NavLink = ({ to, label, icon }) => {
     const active = location.pathname === to;
@@ -113,6 +120,28 @@ export default function Navbar({ role }) {
           }}
         >
           {dark ? "☀️" : "🌙"}
+        </button>
+
+        {/* Logout Button */}
+        <button
+          onClick={handleLogout}
+          title="Logout"
+          style={{
+            background: "transparent",
+            border: `1px solid ${dark ? "#ef444466" : "#fca5a5"}`,
+            color: "#ef4444",
+            borderRadius: "8px",
+            padding: "7px 12px",
+            cursor: "pointer",
+            fontSize: "13px",
+            fontWeight: 600,
+            marginLeft: "6px",
+            transition: "all 0.2s",
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = "#ef444411"}
+          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+        >
+          Logout
         </button>
       </div>
     </nav>

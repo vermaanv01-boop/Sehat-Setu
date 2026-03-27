@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 import logo from "../assets/SEHAT SETU LOGO.jpeg";
 
 export default function Homepage() {
   const [showRoles, setShowRoles] = useState(false);
   const navigate = useNavigate();
   const { dark, toggle } = useTheme();
+  const { user, logout } = useAuth();
 
   return (
     <div style={{
@@ -24,26 +26,47 @@ export default function Homepage() {
       gap: "40px",
     }}>
       {/* Dark Mode Toggle (top right) */}
-      <button
-        onClick={toggle}
-        title={dark ? "Light Mode" : "Dark Mode"}
-        style={{
-          position: "absolute", top: 20, right: 24,
-          background: dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.05)",
-          border: dark ? "1px solid rgba(255,255,255,0.3)" : "1px solid rgba(0,0,0,0.1)",
-          borderRadius: "8px",
-          padding: "8px 12px",
-          fontSize: "18px",
-          cursor: "pointer",
-          backdropFilter: "blur(6px)",
-          color: dark ? "#fff" : "#334155",
-          transition: "background 0.2s",
-        }}
-        onMouseEnter={e => e.currentTarget.style.background = dark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.08)"}
-        onMouseLeave={e => e.currentTarget.style.background = dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.05)"}
-      >
-        {dark ? "☀️" : "🌙"}
-      </button>
+      <div style={{ position: "absolute", top: 20, right: 24, display: "flex", gap: "10px" }}>
+        {user && (
+          <div style={{ 
+            display: "flex", alignItems: "center", gap: "12px", 
+            background: dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.03)",
+            padding: "4px 12px", borderRadius: "10px", border: `1px solid ${dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"}`
+          }}>
+            <span style={{ fontSize: "13px", color: dark ? "#94a3b8" : "#64748b", fontWeight: 500 }}>
+              👤 {user.name}
+            </span>
+            <button 
+              onClick={() => { logout(); navigate("/login"); }}
+              style={{
+                background: "transparent", border: "none", color: "#ef4444", 
+                fontSize: "13px", fontWeight: 700, cursor: "pointer", padding: "4px 8px"
+              }}
+            >
+              Sign Out
+            </button>
+          </div>
+        )}
+        <button
+          onClick={toggle}
+          title={dark ? "Light Mode" : "Dark Mode"}
+          style={{
+            background: dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.05)",
+            border: dark ? "1px solid rgba(255,255,255,0.3)" : "1px solid rgba(0,0,0,0.1)",
+            borderRadius: "8px",
+            padding: "8px 12px",
+            fontSize: "18px",
+            cursor: "pointer",
+            backdropFilter: "blur(6px)",
+            color: dark ? "#fff" : "#334155",
+            transition: "background 0.2s",
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = dark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.08)"}
+          onMouseLeave={e => e.currentTarget.style.background = dark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.05)"}
+        >
+          {dark ? "☀️" : "🌙"}
+        </button>
+      </div>
 
       {/* LEFT SIDE (INFO SECTION) */}
       <div style={{ color: dark ? "#fff" : "#1e293b", maxWidth: "480px", flex: 1 }}>

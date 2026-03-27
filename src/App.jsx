@@ -9,7 +9,7 @@ import History from "./pages/History";
 import Locations from "./pages/Locations";
 
 import { AuthProvider } from "./context/AuthContext";
-import ProtectedRoute from "./components/ProtectedRoute";
+import ProtectedRoute from "./Components/ProtectedRoute";
 
 export default function App() {
   return (

@@ -95,8 +95,8 @@ export default function ReferralCard({
           <ul style={{ margin: "4px 0 0", padding: "0 0 0 16px" }}>
             {files.map((f, i) => (
               <li key={i} style={{ fontSize: "12px", color: dark ? "#60a5fa" : "#3b82f6" }}>
-                <a href={f.url || "#"} target="_blank" rel="noopener noreferrer"
-                  style={{ color: "inherit" }}>{typeof f === "string" ? f : f.name || `File ${i + 1}`}</a>
+                <a href={f.fileUrl || "#"} target="_blank" rel="noopener noreferrer"
+                  style={{ color: "inherit" }}>{typeof f === "string" ? f : f.fileName || `File ${i + 1}`}</a>
               </li>
             ))}
           </ul>
