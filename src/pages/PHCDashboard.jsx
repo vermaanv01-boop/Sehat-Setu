@@ -214,8 +214,17 @@ export default function PHCDashboard() {
               value={form.symptoms}
               onChange={e => setForm({ ...form, symptoms: e.target.value })}
               rows={4}
-              style={{ width: "100%", padding: "12px 14px", borderRadius: "8px", border: `1px solid ${inputBorder}`, background: inputBg, color: text, fontSize: "14px", outline: "none", resize: "vertical", boxSizing: "border-box", marginBottom: "12px" }}
+              style={{ width: "100%", padding: "12px 14px", borderRadius: "8px", border: `1px solid ${inputBorder}`, background: inputBg, color: text, fontSize: "14px", outline: "none", resize: "vertical", boxSizing: "border-box", marginBottom: "8px" }}
             />
+
+            {form.symptoms.length > 5 && (
+              <div style={{ marginBottom: "16px", padding: "12px", background: dark ? "#0d2b1a" : "#f0fdf4", border: `1px solid ${dark ? "#166534" : "#bbf7d0"}`, borderRadius: "10px" }}>
+                <div style={{ fontSize: "14px", fontWeight: 700, color: dark ? "#4ade80" : "#166534", marginBottom: "4px" }}>
+                   🔍 System Detection: <span style={{ color: analysis.risk === 'Critical' || analysis.risk === 'High' ? '#ef4444' : (analysis.risk === 'Medium' ? '#f59e0b' : '#10b981') }}>{analysis.disease} ({analysis.risk} Risk)</span>
+                </div>
+                <div style={{ fontSize: "12px", color: dark ? "#86efac" : "#15803d" }}>💡 {analysis.advice}</div>
+              </div>
+            )}
 
             <div style={{ marginBottom: "16px" }}>
               <label style={{ fontSize: "13px", color: muted, display: "block", marginBottom: "6px" }}>📎 Upload Files (Limit 10MB)</label>
@@ -229,6 +238,28 @@ export default function PHCDashboard() {
                 <h3 style={{ margin: "0 0 16px", fontSize: "16px", color: text, display: "flex", alignItems: "center", gap: "8px" }}>
                   <span style={{ color: "#3b82f6" }}>ℹ️</span> Review Referral Details
                 </h3>
+                
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px", fontSize: "14px" }}>
+                  <div>
+                    <div style={{ color: muted, marginBottom: "4px" }}>Patient</div>
+                    <div style={{ fontWeight: 600 }}>{previewRequest.patient} ({previewRequest.age}y, {previewRequest.gender})</div>
+                  </div>
+                  <div>
+                    <div style={{ color: muted, marginBottom: "4px" }}>Urgency</div>
+                    <div style={{ fontWeight: 700, color: previewRequest.urgency === 'Critical' || previewRequest.urgency === 'High' ? '#ef4444' : '#10b981' }}>{previewRequest.urgency}</div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: "16px", fontSize: "14px" }}>
+                  <div style={{ color: muted, marginBottom: "4px" }}>Suspected Case</div>
+                  <div style={{ fontWeight: 700, fontSize: "16px", color: "#3b82f6" }}>{previewRequest.suspected}</div>
+                </div>
+
+                <div style={{ marginBottom: "16px", fontSize: "14px" }}>
+                  <div style={{ color: muted, marginBottom: "4px" }}>Symptoms</div>
+                  <div style={{ fontStyle: "italic", whiteSpace: "pre-wrap" }}>{previewRequest.symptoms}</div>
+                </div>
+
                 <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "1rem" }}>
                   <button onClick={handleConfirmSubmit} className="btn btn-primary">Confirm & Send to Urban →</button>
                   <button onClick={cancelPreview} className="btn" style={{ background: inputBg, color: text, border: `1px solid ${inputBorder}` }}>Edit Details</button>
