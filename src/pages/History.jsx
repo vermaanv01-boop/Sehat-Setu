@@ -63,6 +63,16 @@ export default function History() {
     urban: requests.filter(r => r.role === "urban").length,
   };
 
+  const { loading } = useData();
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", background: bg, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <p style={{ color: text }}>Loading Patient History...</p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: bg, fontFamily: "'Segoe UI', system-ui, sans-serif", color: text }}>
       <Navbar role={null} />
