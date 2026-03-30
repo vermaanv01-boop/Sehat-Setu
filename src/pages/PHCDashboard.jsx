@@ -31,6 +31,8 @@ export default function PHCDashboard() {
   const muted = dark ? "#64748b" : "#94a3b8";
   const inputBg = dark ? "#1a1d2e" : "#f8fafc";
   const inputBorder = dark ? "#2e3150" : "#d1d5db";
+  
+  const analysis = detectDisease(form.symptoms);
 
   // Fetch Cases from API
   const fetchCases = async () => {

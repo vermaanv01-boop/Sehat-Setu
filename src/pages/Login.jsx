@@ -67,6 +67,15 @@ export default function Login() {
           <button type="submit" className="btn btn-primary" style={styles.button} disabled={loading}>
             {loading ? 'Authenticating...' : 'Sign In'}
           </button>
+          
+          {error && (
+            <div style={styles.hintBox}>
+              <p style={{ margin: 0, fontWeight: 600 }}>Trouble logging in?</p>
+              <p style={{ margin: '4px 0 0', opacity: 0.8 }}>
+                Try <b>admin@example.com</b> with <b>password123</b>
+              </p>
+            </div>
+          )}
         </form>
       </div>
     </div>
@@ -134,5 +143,15 @@ const styles = {
     fontSize: '0.85rem',
     textAlign: 'center',
     border: '1px solid #FCA5A5'
+  },
+  hintBox: {
+    marginTop: '1rem',
+    padding: '1rem',
+    background: 'rgba(15, 118, 110, 0.05)',
+    border: '1px dashed var(--color-primary)',
+    borderRadius: 'var(--radius-sm)',
+    fontSize: '0.8rem',
+    color: 'var(--color-primary)',
+    textAlign: 'center'
   }
 };
